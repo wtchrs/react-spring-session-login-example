@@ -1,11 +1,18 @@
-import {Button, Text} from '@chakra-ui/react';
-import {useState} from 'react';
+import {Button, HStack, Input, List, ListItem, Stack, Text} from '@chakra-ui/react';
+import {FormEvent, useRef, useState} from 'react';
 import {UserInfo} from '../hooks/useUser.ts';
 import apiClient from '../services/api-client.ts';
 
-interface TestApiResult {
-  success: boolean;
+type TestApiResult = TestApiSuccessResult | TestApiFailResult;
+
+interface TestApiSuccessResult {
+  success: true;
   message: string;
+}
+
+interface TestApiFailResult {
+  success: false;
+  errorMsg: string;
 }
 
 interface Props {
@@ -13,19 +20,21 @@ interface Props {
 }
 
 const Home = ({userInfo}: Props) => {
-  const [result, setResult] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [results, setResults] = useState<string[]>([]);
 
-  const handleClick = () => {
-    apiClient.get<TestApiResult>('/test')
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    apiClient.post<TestApiResult>('/test', {message: inputRef.current?.value || ''})
       .then(({data}) => {
         if (data.success) {
-          setResult('Test success: ' + data.message);
+          setResults([...results, 'Test success: ' + data.message]);
         } else {
-          setResult('Test failed: ' + data.message);
+          setResults([...results, 'Test failed: ' + data.errorMsg]);
         }
       })
       .catch(err => {
-        setResult('Test Failed: ' + err.message)
+        setResults([...results, 'Test Failed: ' + err.message]);
       });
   };
 
@@ -36,12 +45,19 @@ const Home = ({userInfo}: Props) => {
   }
 
   return (
-    <>
-      <Text>{`User: ${userInfo.id}`}</Text>
+    <Stack align="center">
+      <Text>{`User ID: ${userInfo.id}`}</Text>
       <Text>{`Name: ${userInfo.name}`}</Text>
-      <Button onClick={handleClick}>Test API</Button>
-      {result && <Text>{result}</Text>}
-    </>
+      <form onSubmit={handleSubmit}>
+        <HStack>
+          <Input ref={inputRef} type="text" name="message"/>
+          <Button type="submit">Test API</Button>
+        </HStack>
+      </form>
+      <List>
+        {results.map((result, index) => <ListItem key={index}>{result}</ListItem>)}
+      </List>
+    </Stack>
   );
 };
 
